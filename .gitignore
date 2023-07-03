@@ -1,3 +1,6 @@
 
 *.log
 logs/scheduler/latest
+*.png
+*.csv
+*.pkl

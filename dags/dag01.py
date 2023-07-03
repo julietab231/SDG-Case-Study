@@ -35,9 +35,13 @@ print('Head:\n',df.head())
 print('\nShape of the DataFrame:\n', df.shape)  
 
 # check the data types of each column
+df_dtypes = df.dtypes
+df_dtypes.to_csv('SDG-Case-Study//df_dtypes.csv')
 print('\nData types of each column:\n', df.dtypes)
 
 # get summary statistics of the numerical/date format column
+df_describe = df.describe()
+df_describe.to_csv('SDG-Case-Study//df_describe.csv')
 print('\nSummary statistics \n',df.describe()) 
 
 # count the number of unique values in each column
