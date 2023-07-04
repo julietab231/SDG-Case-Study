@@ -6,6 +6,10 @@
 ################################################
 ################################################
 
+'''
+At first run this comand in your environment:
+pip install -r requirements.txt
+'''
 
 ################################################
 # install libraries
