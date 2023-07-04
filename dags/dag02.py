@@ -85,8 +85,10 @@ onehot_encoder = OneHotEncoder()
 onehot_encoded = onehot_encoder.fit_transform(df[cat_columns])
 
 # Convert the encoded data into a pandas dataframe and concatenate it with the original dataframe
-onehot_encoded_df = pd.DataFrame(onehot_encoded.toarray(), columns=onehot_encoder.get_feature_names(cat_columns))
-df = pd.concat([df, onehot_encoded_df], axis=1)
+onehot_encoded_df = pd.DataFrame(onehot_encoded.toarray(), 
+                                 columns=onehot_encoder.get_feature_names(cat_columns),
+                                 index= df.index)
+df = df.merge(onehot_encoded_df, right_index=True, left_index=True)
 
 # Drop the original categorical columns that were encoded
 df = df.drop(cat_columns, axis=1)
