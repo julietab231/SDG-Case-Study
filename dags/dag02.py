@@ -24,7 +24,7 @@ import sys
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
 from sklearn.metrics import f1_score
-
+from sklearn.metrics import plot_roc_curve
 
 
 ################################################
@@ -37,7 +37,7 @@ file_name = "SDG-Case-Study//dataset.csv"
 # Read the CSV file from the mounted volume using Pandas
 df = pd.read_csv(file_name,
                  delimiter=';',
-                 thousands=',',
+                 decimal=',',
                  error_bad_lines=False)
 print('data imported')
 ################################################
@@ -48,7 +48,6 @@ print('data imported')
 df.index = df['Customer_ID']
 df = df.drop('Customer_ID', axis=1)
 print('Customer_ID saved as index')
-
 
 
 # prepare data with one-hot encoding
@@ -191,6 +190,12 @@ df = df.replace([np.inf, -np.inf], 1e10)
 X = df.drop('churn', axis=1)
 y = df['churn']
 
+print(X.shape)
+# Save processed data:
+X.to_csv('SDG-Case-Study//dataset_processed_X.csv')
+y.to_csv('SDG-Case-Study//dataset_processed_y.csv')
+
+
 # Split the data into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
@@ -230,6 +235,10 @@ print('recall:', recall)
 f1 = f1_score(y_test, y_pred)
 print('f1:', recall)
 
+# Plot and save the ROC curve
+roc_plot = plot_roc_curve(model, X_test, y_test)
+plt.savefig('SDG-Case-Study//plots//dag02_roc_curve.png')
+
 # Get the feature importances from the model
 importances = model.feature_importances_
 
@@ -241,7 +250,7 @@ for i, importance in enumerate(importances):
 
 importances_df = importances_df.sort_values(by='Importance',
                                             ascending=False)
-importances_df.to_csv('SDG-Case-Study//output//importances.csv',index=False)
+importances_df.to_csv('SDG-Case-Study//output//dag02_importances.csv',index=False)
 
 print('Most important features: \n ', importances_df[0:20])
 
