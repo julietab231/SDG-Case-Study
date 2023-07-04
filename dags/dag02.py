@@ -14,13 +14,18 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
 from sklearn.inspection import plot_partial_dependence
 import pickle
 import sys
+from sklearn.metrics import precision_score
+from sklearn.metrics import recall_score
+from sklearn.metrics import f1_score
+
+
 
 ################################################
 # read data
@@ -71,7 +76,9 @@ cat_columns = [
     'kid6_10',
     'kid11_15',
     'kid16_17',
-    'creditcd'
+    'creditcd',
+    'rv',
+    'truck'
     ]
 
 # Perform one-hot encoding on the selected columns
@@ -138,7 +145,6 @@ num_columns = [
     'complete_Mean',
     'callfwdv_Mean',
     'callwait_Mean',
-    'churn',
     'months',
     'uniqsubs',
     'actvsubs',
@@ -160,14 +166,13 @@ num_columns = [
     'hnd_price',
     'phones',
     'models',
-    'truck',
-    'rv',
     'lor',
     'adults',
     'income',
     'numbcars',
     'forgntvl',
-    'eqpdays'
+    'eqpdays',
+    'churn'
     ]
 
 # change the data type of the selected columns
@@ -191,9 +196,9 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 
 print('data splited into training and testing sets')
 
-# Create a decision tree classifier model
-model = DecisionTreeClassifier(random_state=42)
-print('created a decision tree classifier model')
+# Create model
+model = RandomForestClassifier(random_state=42)
+print('created a random forest classifier model')
 
 # Train the model on the training data
 model.fit(X_train, y_train)
@@ -213,6 +218,18 @@ print('predictions made on testing data')
 accuracy = accuracy_score(y_test, y_pred)
 print('Accuracy:', accuracy)
 
+# Calculate the precision of the model
+precision = precision_score(y_test, y_pred)
+print('Precision:', precision)
+
+# Calculate the recall of the model
+recall = recall_score(y_test, y_pred)
+print('recall:', recall)
+
+# Calculate the f1 of the model
+f1 = f1_score(y_test, y_pred)
+print('f1:', recall)
+
 # Get the feature importances from the model
 importances = model.feature_importances_
 
@@ -224,6 +241,7 @@ for i, importance in enumerate(importances):
 
 importances_df = importances_df.sort_values(by='Importance',
                                             ascending=False)
+importances_df.to_csv('SDG-Case-Study//output//importances.csv',index=False)
 
 print('Most important features: \n ', importances_df[0:20])
 
@@ -232,7 +250,7 @@ print('Most important features: \n ', importances_df[0:20])
 #################################################################
 
 # get the indices of the top 10 most important features
-top_indices = importances.argsort()[::-1][:11]
+top_indices = importances.argsort()[::-1][:10]
 top_features = X.iloc[:, top_indices]
 
 # Generate ICE plots for each feature
