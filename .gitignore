@@ -1,6 +1,10 @@
 
 *.log
 logs/scheduler/latest
-*.png
-*.csv
-*.pkl
+
+dataset_processed_X.csv
+dataset_processed_y.csv
+df_describe.csv
+df_dtypes.csv
+importances.csv
+output/dt_model.pkl
