@@ -5,5 +5,7 @@ This repository contains a Python implementation of a random forest prediction m
 
 
 At first run this comand in your environment:
+```bash
 pip install -r requirements.txt
+```
 
