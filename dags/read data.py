@@ -19,7 +19,7 @@ task_logger = logging.getLogger("airflow.task")
     catchup=False,
     tags=["analysis"],
 )
-def analysis_taskflow_api():
+def read_data():
     """
     ### TaskFlow API Analysis Documentation
     This is a first descriptive analysis of data.
@@ -91,6 +91,10 @@ def analysis_taskflow_api():
         print('\nDistribution of the churn column:\n', df['churn'].value_counts())
 
         return {"Descriptive statistics": df.describe()}
-analysis_taskflow_api()
+
+    df = extract()
+    summarise(df)
+
+read_data()
 
 

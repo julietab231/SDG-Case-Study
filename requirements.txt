@@ -54,5 +54,6 @@ threadpoolctl==3.1.0
 tqdm==4.65.0
 typing_extensions==4.7.0
 tzdata==2023.3
-urllib3==2.0.3
+urllib3==1.26.16
 xgboost==1.7.6
+subprocess.run==0.0.8
