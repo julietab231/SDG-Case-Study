@@ -2,6 +2,8 @@ from airflow.models import DAG
 from airflow import Dataset
 from airflow.decorators import task
 from airflow.operators.python import ExternalPythonOperator
+from airflow.operators.bash_operator import BashOperator
+
 import pendulum
 
 import logging
@@ -16,21 +18,11 @@ task_logger = logging.getLogger("airflow.task")
 
 my_data = Dataset('/opt/airflow/dags/dataset.csv')
 
-requirements =  Dataset('/opt/airflow/dags/vs_modules/requirements.txt')
-
 with DAG(
     dag_id='prepare_dataset',
     schedule=[my_data], # runs only when dataset is updated
     start_date=pendulum.yesterday(),
     catchup=False):
-    
-    @task.virtualenv(
-        task_id='virtualenv_python',
-        requirements=requirements.uri,
-        system_site_packages=False
-        )
-    def callable_virtualenv():
-        import sklearn
 
     @task(outlets=[my_data])
     def prepare_data():
@@ -71,4 +63,4 @@ with DAG(
 
         task_logger.info('Dataset prepared and updated')
 
-    callable_virtualenv() >> prepare_data()
+    prepare_data()
