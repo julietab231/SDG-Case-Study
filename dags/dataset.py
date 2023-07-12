@@ -161,8 +161,8 @@ with DAG(
 
         # Convert the encoded data into a pandas dataframe and concatenate it with the original dataframe
         onehot_encoded_df = pd.DataFrame(onehot_encoded.toarray(), 
-                                        columns=onehot_encoder.get_feature_names(cat_cols),
-                                        index= df.index)
+                                            columns=onehot_encoder.get_feature_names(cat_cols),
+                                            index= df.index)
         df = df.merge(onehot_encoded_df, right_index=True, left_index=True)
 
         # Drop the original categorical columns that were encoded
