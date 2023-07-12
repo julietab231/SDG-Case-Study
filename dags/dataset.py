@@ -23,6 +23,7 @@ default_args = {
     'retry_delay': timedelta(minutes=5)}
 
 my_data = Dataset('/opt/airflow/dags/dataset.csv')
+my_data_prepared = Dataset('/opt/airflow/dags/dataset_prepared.csv')
 
 with DAG(
     default_args=default_args,
@@ -124,8 +125,8 @@ with DAG(
             'numbcars',
             'forgntvl',
             'eqpdays',
-            'churn'
-    ]
+            'churn']
+
         cat_cols = [
             'new_cell',
             'crclscod',
@@ -175,6 +176,14 @@ with DAG(
 
         task_logger.info('Dataset prepared and updated')
         task_logger.info('Shape:\n')
-        task_logger.info(df.shape())
+        task_logger.info(df.shape)
 
-    prepare_data()
+    @task
+    def exploratory_data_analysis():
+        df = pd.read_csv(my_data_prepared.uri, 
+                delimiter=',')
+        task_logger.info(df.head)
+        task_logger.info('exploratory data analysis')
+    
+
+    prepare_data() >> exploratory_data_analysis() 
