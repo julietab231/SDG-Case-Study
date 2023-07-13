@@ -69,9 +69,9 @@ num_cols = [
     'phones',
     'models',
     'lor',
-    'adults',
-    'income',
-    'numbcars',
+    #'adults',
+    #'income',
+    #'numbcars',
     'forgntvl',
     'eqpdays',
     'churn']
@@ -86,10 +86,10 @@ cat_cols = [
 'refurb_new',
 'hnd_webcap',
 'ownrent',
-'dwlltype',
+#'dwlltype',
 'marital',
 'infobase',
-'HHstatin',
+#'HHstatin',
 'dwllsize',
 'ethnic',
 'kid0_2',
@@ -99,5 +99,10 @@ cat_cols = [
 'kid16_17',
 'creditcd',
 'rv',
-'truck'
-]
+'truck']
+
+variables_to_drop = ['numbcars',
+                      'HHstatin',
+                      'dwlltype',
+                      'income',
+                      'adults']
