@@ -45,7 +45,8 @@ with DAG(
     schedule=[my_data], # runs only when dataset is updated
     start_date=pendulum.yesterday(),
     catchup=False):
-     
+    
+    @task
     def prepare_data():
         df = pd.read_csv(my_data_cleaned.uri, 
                     delimiter=',')
