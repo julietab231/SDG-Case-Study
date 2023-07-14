@@ -2,9 +2,10 @@ from airflow.models import DAG
 from airflow import Dataset
 from airflow.decorators import task
 from airflow.operators.python import ExternalPythonOperator
-from airflow.operators.bash_operator import BashOperator
 
 import pendulum
+
+import pickle
 
 import logging
 import pandas as pd
@@ -13,11 +14,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.tree import DecisionTreeRegressor
-from sklearn.feature_selection import VarianceThreshold, mutual_info_classif, SelectKBest
+from sklearn.feature_selection import VarianceThreshold, mutual_info_classif, SelectKBest, train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.inspection import plot_partial_dependence
+from sklearn.metrics import precision_score, recall_score, f1_score, plot_roc_curve
 
 from datetime import timedelta
 
-from includes.vs_modules import analysis_functions
+from includes.vs_modules import analysis_functions, variables
 
 import os
 
@@ -31,22 +35,21 @@ default_args = {
 
 my_data = Dataset('/opt/airflow/dags/dataset.csv')
 my_data_prepared = Dataset('/opt/airflow/dags/dataset_prepared.csv')
+my_data_cleaned = Dataset('/opt/airflow/dags/dataset_cleaned.csv')
+my_data_completed = Dataset('/opt/airflow/dags/dataset_completed.csv')
+my_data_selected= Dataset('/opt/airflow/dags/dataset_feature_selected.csv')
 
 with DAG(
     default_args=default_args,
-    dag_id='exploratory_data_analysis',
+    dag_id='analysis',
     schedule=[my_data], # runs only when dataset is updated
     start_date=pendulum.yesterday(),
     catchup=False):
-
-    @task(outlets=[my_data])
+     
     def prepare_data():
-        df = pd.read_csv(my_data.uri, 
-                    delimiter=';',
-                    decimal=',')
-
-        df = df.drop(columns=variables_to_drop) # eliminate selected variables with missing values > 30% 
-
+        df = pd.read_csv(my_data_cleaned.uri, 
+                    delimiter=',')
+        
         df.index = df['Customer_ID']
         df = df.drop('Customer_ID', axis=1)
 
@@ -156,9 +159,6 @@ with DAG(
         df = df.replace('UNKW', np.nan) 
         df = df.replace('nan',np.nan) 
 
-        # list of columns to discard: 
-        colums_to_drop = []
-
         # check if there are columns with varianze equal to zero
         num_cols_l = df.select_dtypes(include='number').columns
         cat_cols_l = df.select_dtypes(include='object').columns
@@ -171,13 +171,14 @@ with DAG(
 
         # update columns to discard:
         if len(all_const_cols)>0:
-            colums_to_drop.append(all_const_cols)
+            variables.colums_to_drop.append(all_const_cols)
             task_logger.info(f'Columns to discard from the analysis : {all_const_cols}')
         
         # BLOCKS OF ANALYSIS: revenue, minutes, calls and other variables
         var_groups = ['rev', # revenue
                       'mou', # minutes
-                      'qty' # calls
+                      'qty', # calls
+                      'others'
                       ]
         for term in var_groups:
             analysis_functions.eda(df, term)
@@ -185,9 +186,11 @@ with DAG(
         for term in ['rev','mou']:
             df = analysis_functions.drop_outliers(df, term)
 
+        # Exclude variables -- manually checked
+        df = df.drop(variables.variables_to_discard,
+                     axis=1)
 
-
-
+        df.to_csv('/opt/airflow/dags/dataset_cleaned.csv', index=True)
 
 
     @task
@@ -228,8 +231,122 @@ with DAG(
         if len(df_without_na)!= len(df):
             not_predicted_rows = len(df) - len(df_without_na)
             not_predicted_rows_pct = round(not_predicted_rows/len(df) * 100,2)
-            #task_logger.warning(f'There is a  {not_predicted_rows_pct} % of rows without predicted values.  Because the amount of missing information was too much to predict missing values.')
+            task_logger.warning(f'There is a  {not_predicted_rows_pct} % of rows without predicted values.  Because the amount of missing information was too much to predict missing values.')
+
+        # Seleccionar solo las columnas que no contienen 'nan' en su nombre
+        df_without_na = df_without_na[[col for col in df_without_na.columns if 'nan' not in col]]
 
         df_without_na.to_csv('/opt/airflow/dags/dataset_complete.csv', index=True)
 
-missing_data_analysis() >> prepare_data() >> missing_data_attribution
+    @task
+    def feature_selection():
+        df = pd.read_csv(my_data_completed.uri, 
+                delimiter=',')
+        X =df.drop('churn', axis=1)
+        y = df['churn']
+
+        # Split the data into training and testing sets
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+        # we use selectbest to get the top features according to MI Classification (MIC).
+        # We then employ get_support() to obtain a boolean vector (or mask) which tells us which feature are in the top features and we subset the list features with this mask:
+        mic_selection = SelectKBest(mutual_info_classif, k = 'all').fit(X_train,y_train)
+
+        # Get the names of the selected features
+        mic_cols = X_train.columns[mic_selection.get_support()].tolist()
+
+        # Get the mutual information scores for the selected features
+        mic_scores = mic_selection.scores_[mic_selection.get_support()]
+
+        mic = pd.DataFrame(columns=['cols',
+                            'mic_scores'])
+        mic['cols'] = mic_cols
+        mic['mic_scores'] = mic_scores
+        mic = mic.sort_values(by='mic_scores',ascending=False)
+
+        selected_features = mic[mic['mic_scores']>0]
+
+        df = df[selected_features['cols']]
+        df.to_csv('/opt/airflow/dags/dataset_feature_selected.csv', index=True)
+
+    @task
+    def model_training():
+        df = pd.read_csv(my_data_selected.uri, 
+                delimiter=',')
+        X = df.drop('churn', axis=1)
+        y = df['churn']
+
+        # Split the data into training and testing sets
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+        # Create model
+        model = RandomForestClassifier(random_state=42)
+        print('created a random forest classifier model')
+
+        # Train the model on the training data
+        model.fit(X_train, y_train)
+        print('trained model')
+
+        # Save the trained model as a pickle file
+        with open('SDG-Case-Study//output//dt_model.pkl', 'wb') as f:
+            pickle.dump(model, f)
+        print('saved model as pickle in output folder')
+
+
+        # Make predictions on the testing data
+        y_pred = model.predict(X_test)
+        print('predictions made on testing data')
+
+        # Calculate the accuracy of the model
+        accuracy = accuracy_score(y_test, y_pred)
+        print('Accuracy:', accuracy)
+
+        # Calculate the precision of the model
+        precision = precision_score(y_test, y_pred)
+        print('Precision:', precision)
+
+        # Calculate the recall of the model
+        recall = recall_score(y_test, y_pred)
+        print('recall:', recall)
+
+        # Calculate the f1 of the model
+        f1 = f1_score(y_test, y_pred)
+        print('f1:', recall)
+
+        # Plot and save the ROC curve
+        roc_plot = plot_roc_curve(model, X_test, y_test)
+        plt.savefig('SDG-Case-Study//plots//dag02_roc_curve.png')
+
+        # Get the feature importances from the model
+        importances = model.feature_importances_
+
+        # Print and save the feature importances
+        importances_df = pd.DataFrame(columns = ['Feature', 'Importance'])
+        for i, importance in enumerate(importances):
+            row = {'Feature': X.columns[i], 'Importance': importance}
+            importances_df = importances_df.append(row, ignore_index=True)
+
+        importances_df = importances_df.sort_values(by='Importance',
+                                                    ascending=False)
+        importances_df.to_csv('SDG-Case-Study//output//dag02_importances.csv',index=False)
+
+        print('Most important features: \n ', importances_df[0:20])
+
+        #################################################################
+        # Understand importances with ICE plots
+        #################################################################
+
+        # get the indices of the top 10 most important features
+        top_indices = importances.argsort()[::-1][:10]
+        top_features = X.iloc[:, top_indices]
+
+        # Generate ICE plots for each feature
+        features = X.columns.tolist()
+        for feature_name in top_features:
+            fig, ax = plt.subplots()
+            plot_partial_dependence(model, X, [feature_name], ax=ax)
+            plt.savefig(f"SDG-Case-Study//plots//{feature_name}_ice_plot.png")
+            plt.close()
+
+        
+missing_data_analysis() >> exploratory_data_analysis() >> prepare_data() >> missing_data_attribution() >> feature_selection() >> model_training()
