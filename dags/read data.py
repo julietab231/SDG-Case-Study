@@ -32,11 +32,9 @@ def read_data():
         #### read data
 
         """
-        # Define the name of the CSV file
-        file_name = "SDG-Case-Study//dataset.csv"
 
         # Read the CSV file from the mounted volume using Pandas
-        df = pd.read_csv(file_name,
+        df = pd.read_csv(my_data.uri,
                          delimiter=';')
         task_logger.info('Dataset csv readed')
         task_logger.info(df.head())

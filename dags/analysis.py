@@ -2,6 +2,7 @@ from airflow.models import DAG
 from airflow import Dataset
 from airflow.decorators import task, dag
 from airflow.operators.python import ExternalPythonOperator
+from airflow.operators.python_operator import PythonOperator
 
 import pendulum
 
@@ -93,15 +94,23 @@ def analysis():
                 delimiter=';',
                 decimal=',')
 
+        task_logger.info('Dataset read')
+
         # some corrections
         df = df.replace('UNKW', np.nan) # hnd_webcap
         df = df.replace('nan',np.nan) 
-
+        
+        task_logger.info('nan replaces done')
+        
         # Calculate number of null per variable
         na_per_variable = df.isnull().sum()
 
+        task_logger.info('Calculated number of null per variable')
+
         # Calculate % of null per variable
         pct_na_per_variable = (na_per_variable / len(df))*100
+
+        task_logger.info('Calculated % of null per variable')
 
         # Show variables with null
         variables_with_na = pct_na_per_variable[pct_na_per_variable > 0].sort_values(ascending=False)
@@ -138,6 +147,8 @@ def analysis():
         plt.show()
         plt.savefig(f"SDG-Case-Study//plots//incomplete_variables-churn_relation.png")
 
+        task_logger.info('Saved incomplete variables churn relation plots')
+
         # Crear un gr�fico de barras para cada variable
         fig, axs = plt.subplots(2, 5, figsize=(15, 6))
 
@@ -151,6 +162,8 @@ def analysis():
         plt.show()
         plt.savefig(f"SDG-Case-Study//plots//incomplete_variables-distribution.png")
 
+        task_logger.info('Saved incomplete variables distribution plots')
+
     @task(outlets=[my_data_cleaned])
     def exploratory_data_analysis():
         df = pd.read_csv(my_data.uri, 
@@ -158,9 +171,12 @@ def analysis():
                 decimal=',',
                 encoding='utf-8')
 
+        task_logger.info('Dataset read')
         # some corrections
         df = df.replace('UNKW', np.nan) 
         df = df.replace('nan',np.nan) 
+
+        task_logger.info('nan replaces done')
 
         # check if there are columns with varianze equal to zero
         num_cols_l = df.select_dtypes(include='number').columns
@@ -172,10 +188,15 @@ def analysis():
         cat_const_cols = df[cat_cols_l].nunique()[lambda x: x<2].index.tolist()
         all_const_cols = num_const_cols + cat_const_cols
 
+        task_logger.info('Check if there are columns with varianze = zero')
+
         # update columns to discard:
         if len(all_const_cols)>0:
             variables.colums_to_drop.append(all_const_cols)
             task_logger.info(f'Columns to discard from the analysis : {all_const_cols}')
+
+        task_logger.info('Updated list of columns to discard')
+
         
         # BLOCKS OF ANALYSIS: revenue, minutes, calls and other variables
         var_groups = ['rev', # revenue
@@ -183,17 +204,24 @@ def analysis():
                         'qty', # calls
                         'others'
                         ]
+        task_logger.info('defined blocks for variables analysis')
+        #eda = PythonOperator(python_callable=analysis_functions)
+        
         for term in var_groups:
             analysis_functions.eda(df, term)
+            task_logger.info(f'EDA done for {term}')
 
         for term in ['rev','mou']:
             df = analysis_functions.drop_outliers(df, term)
+            task_logger.info(f'Outliers dropped for {term}')
 
         # Exclude variables -- manually checked
         df = df.drop(variables.variables_to_discard,
-                        axis=1)
+                     axis=1)
+        task_logger.info('Variables excluded')
 
         df.to_csv('/opt/airflow/dags/dataset_cleaned.csv', index=True)
+        task_logger.info('dataset_cleaned saved as csv into airflow/dags')
 
 
     @task(outlets=[my_data_completed])
@@ -352,6 +380,6 @@ def analysis():
             plt.close()
         
     # missing_data_analysis() >> exploratory_data_analysis() >> prepare_data() >> missing_data_attribution() >> feature_selection() >> model_training()
-    exploratory_data_analysis()
+    exploratory_data_analysis() >> prepare_data()
 
 analysis()
