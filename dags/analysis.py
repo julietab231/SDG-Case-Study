@@ -14,7 +14,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.tree import DecisionTreeRegressor
-from sklearn.feature_selection import VarianceThreshold, mutual_info_classif, SelectKBest, train_test_split
+from sklearn.feature_selection import VarianceThreshold, mutual_info_classif, SelectKBest
+from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.inspection import plot_partial_dependence
 from sklearn.metrics import precision_score, recall_score, f1_score, plot_roc_curve, accuracy_score
