@@ -7,14 +7,16 @@ import pendulum
 import pandas as pd
 
 from airflow.decorators import dag, task
+from airflow import Dataset
 import logging
 
 # get the airflow.task logger
 task_logger = logging.getLogger("airflow.task")
 
+my_data = Dataset('/opt/airflow/dags/dataset.csv')
 
 @dag(
-    schedule=None,
+    schedule=[my_data],
     start_date=pendulum.datetime(2023, 1, 1, tz="UTC"),
     catchup=False,
     tags=["analysis"],

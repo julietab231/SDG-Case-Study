@@ -17,7 +17,7 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.feature_selection import VarianceThreshold, mutual_info_classif, SelectKBest, train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.inspection import plot_partial_dependence
-from sklearn.metrics import precision_score, recall_score, f1_score, plot_roc_curve
+from sklearn.metrics import precision_score, recall_score, f1_score, plot_roc_curve, accuracy_score
 
 from datetime import timedelta
 
@@ -46,7 +46,7 @@ with DAG(
     start_date=pendulum.yesterday(),
     catchup=False):
     
-    @task
+    @task(outlets=[my_data_prepared])
     def prepare_data():
         df = pd.read_csv(my_data_cleaned.uri, 
                     delimiter=',')
@@ -137,7 +137,7 @@ with DAG(
         plt.show()
         plt.savefig(f"SDG-Case-Study//plots//incomplete_variables-churn_relation.png")
 
-        # Crear un gráfico de barras para cada variable
+        # Crear un grï¿½fico de barras para cada variable
         fig, axs = plt.subplots(2, 5, figsize=(15, 6))
 
         for i, var in enumerate(variables):
@@ -150,7 +150,7 @@ with DAG(
         plt.show()
         plt.savefig(f"SDG-Case-Study//plots//incomplete_variables-distribution.png")
 
-    @task
+    @task(outlets=[my_data_cleaned])
     def exploratory_data_analysis():
         df = pd.read_csv(my_data.uri, 
                 delimiter=';',
@@ -194,7 +194,7 @@ with DAG(
         df.to_csv('/opt/airflow/dags/dataset_cleaned.csv', index=True)
 
 
-    @task
+    @task(outlets=[my_data_completed])
     def missing_data_attribution():
         df = pd.read_csv(my_data_prepared.uri, 
                 delimiter=',')
@@ -239,7 +239,7 @@ with DAG(
 
         df_without_na.to_csv('/opt/airflow/dags/dataset_complete.csv', index=True)
 
-    @task
+    @task(outlets=[my_data_selected])
     def feature_selection():
         df = pd.read_csv(my_data_completed.uri, 
                 delimiter=',')
@@ -348,6 +348,5 @@ with DAG(
             plot_partial_dependence(model, X, [feature_name], ax=ax)
             plt.savefig(f"SDG-Case-Study//plots//{feature_name}_ice_plot.png")
             plt.close()
-
         
 missing_data_analysis() >> exploratory_data_analysis() >> prepare_data() >> missing_data_attribution() >> feature_selection() >> model_training()
