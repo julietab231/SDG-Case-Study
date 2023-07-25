@@ -37,8 +37,7 @@ def read_data():
 
         # Read the CSV file from the mounted volume using Pandas
         df = pd.read_csv(file_name,
-                         delimiter=';',
-                         error_bad_lines=False)
+                         delimiter=';')
         task_logger.info('Dataset csv readed')
         task_logger.info(df.head())
 

@@ -1,6 +1,6 @@
 from airflow.models import DAG
 from airflow import Dataset
-from airflow.decorators import task
+from airflow.decorators import task, dag
 from airflow.operators.python import ExternalPythonOperator
 
 import pendulum
@@ -40,13 +40,13 @@ my_data_cleaned = Dataset('/opt/airflow/dags/dataset_cleaned.csv')
 my_data_completed = Dataset('/opt/airflow/dags/dataset_completed.csv')
 my_data_selected= Dataset('/opt/airflow/dags/dataset_feature_selected.csv')
 
-with DAG(
+@dag(
     default_args=default_args,
-    dag_id='analysis',
     schedule=[my_data], # runs only when dataset is updated
     start_date=pendulum.yesterday(),
-    catchup=False):
-    
+    catchup=False
+    )   
+def analysis():
     @task(outlets=[my_data_prepared])
     def prepare_data():
         df = pd.read_csv(my_data_cleaned.uri, 
@@ -113,16 +113,16 @@ with DAG(
 
         # variables with missing values that we want to compare with 'churn'
         variables = ['numbcars',
-                      'dwllsize', # categorical
-                      'HHstatin', # categorical
-                      'ownrent', # categorical
-                      'dwlltype', # categorical
-                      'lor',
-                      'income',
-                      'adults',
-                      'infobase', # categorical
-                      'hnd_webcap' # categorical
-                     ]
+                        'dwllsize', # categorical
+                        'HHstatin', # categorical
+                        'ownrent', # categorical
+                        'dwlltype', # categorical
+                        'lor',
+                        'income',
+                        'adults',
+                        'infobase', # categorical
+                        'hnd_webcap' # categorical
+                        ]
 
         # Create a bar plot for each variable with churn
         fig, axs = plt.subplots(2, 5, figsize=(15, 6))
@@ -155,7 +155,8 @@ with DAG(
     def exploratory_data_analysis():
         df = pd.read_csv(my_data.uri, 
                 delimiter=';',
-                decimal=',')
+                decimal=',',
+                encoding='utf-8')
 
         # some corrections
         df = df.replace('UNKW', np.nan) 
@@ -178,10 +179,10 @@ with DAG(
         
         # BLOCKS OF ANALYSIS: revenue, minutes, calls and other variables
         var_groups = ['rev', # revenue
-                      'mou', # minutes
-                      'qty', # calls
-                      'others'
-                      ]
+                        'mou', # minutes
+                        'qty', # calls
+                        'others'
+                        ]
         for term in var_groups:
             analysis_functions.eda(df, term)
 
@@ -190,7 +191,7 @@ with DAG(
 
         # Exclude variables -- manually checked
         df = df.drop(variables.variables_to_discard,
-                     axis=1)
+                        axis=1)
 
         df.to_csv('/opt/airflow/dags/dataset_cleaned.csv', index=True)
 
@@ -350,4 +351,7 @@ with DAG(
             plt.savefig(f"SDG-Case-Study//plots//{feature_name}_ice_plot.png")
             plt.close()
         
-missing_data_analysis() >> exploratory_data_analysis() >> prepare_data() >> missing_data_attribution() >> feature_selection() >> model_training()
+    # missing_data_analysis() >> exploratory_data_analysis() >> prepare_data() >> missing_data_attribution() >> feature_selection() >> model_training()
+    exploratory_data_analysis()
+
+analysis()
