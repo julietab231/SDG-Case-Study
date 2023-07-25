@@ -38,7 +38,7 @@ default_args = {
 my_data = Dataset('/opt/airflow/dags/dataset.csv')
 my_data_prepared = Dataset('/opt/airflow/dags/dataset_prepared.csv')
 my_data_cleaned = Dataset('/opt/airflow/dags/dataset_cleaned.csv')
-my_data_completed = Dataset('/opt/airflow/dags/dataset_completed.csv')
+my_data_completed = Dataset('/opt/airflow/dags/dataset_complete.csv')
 my_data_selected= Dataset('/opt/airflow/dags/dataset_feature_selected.csv')
 
 @dag(
@@ -59,9 +59,9 @@ def analysis():
         task_logger.info('Dataset csv readed')
         task_logger.info(df.head())
 
-        num_cols = variables.num_cols
+        num_cols = df.select_dtypes(include='number').columns
 
-        cat_cols = variables.cat_cols
+        cat_cols = df.select_dtypes(include='object').columns
 
         # Booleans columns must be categorical
         df[cat_cols] = df[cat_cols].astype(str)
@@ -380,6 +380,6 @@ def analysis():
             plt.close()
         
     # missing_data_analysis() >> exploratory_data_analysis() >> prepare_data() >> missing_data_attribution() >> feature_selection() >> model_training()
-    exploratory_data_analysis() >> prepare_data()
+    exploratory_data_analysis() >> prepare_data() >> missing_data_attribution() >> feature_selection()
 
 analysis()
