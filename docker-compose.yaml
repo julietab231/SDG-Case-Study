@@ -260,10 +260,10 @@ services:
     user: "0:0"
     volumes:
       - ${AIRFLOW_PROJ_DIR:-.}:/sources
-      - ./dags:/opt/airflow/dags
-      - ./logs:/opt/airflow/logs
-      - ./plugins:/opt/airflow/plugins 
-      - ./data:/opt/airflow/data
+      - ${AIRFLOW_PROJ_DIR:-.}:/dags
+      - ${AIRFLOW_PROJ_DIR:-.}:/logs
+      - ${AIRFLOW_PROJ_DIR:-.}:/plugins
+      - ${AIRFLOW_PROJ_DIR:-.}:/data     
 
   airflow-cli:
     <<: *airflow-common
