@@ -21,3 +21,4 @@ mlruns/0/meta.yaml
 dags/__pycache__/analysis.cpython-37.pyc
 *.pyc
 *.pyc
+*.pyc
