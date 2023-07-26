@@ -36,6 +36,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 mlflow.autolog()
+mlflow.set_experiment("Churn Prediction")
 
 # get the airflow.task logger
 task_logger = logging.getLogger("airflow.task")
@@ -51,6 +52,7 @@ my_data_cleaned = Dataset('/opt/airflow/data/dataset_cleaned.csv')
 my_data_completed = Dataset('/opt/airflow/data/dataset_complete.csv')
 my_data_selected= Dataset('/opt/airflow/data/dataset_feature_selected.csv')
 my_model = Dataset('/otp/airflow/data/model.pkl')
+importances = Dataset('/otp/airflow/data/importances.csv')
 
 @dag(
     default_args=default_args,
@@ -353,6 +355,8 @@ def analysis():
         y = df['churn']
 
         with mlflow.start_run() as run:
+            mlflow.set_tag('random forest')
+
             # Split the data into training and testing sets
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
@@ -400,10 +404,15 @@ def analysis():
             log_metric("f1", f1)
             task_logger.info('f1:', recall)
 
+            mlflow.end_run()
+
         # Plot and save the ROC curve
         roc_plot = plot_roc_curve(model, X_test, y_test)
         plt.savefig('/opt/airflow/data/plots/roc_curve.png')
 
+    @task(outlets=[importances])
+    def feature_importances():
+        model = my_model.uri
         # Get the feature importances from the model
         importances = model.feature_importances_
 
@@ -415,6 +424,7 @@ def analysis():
 
         importances_df = importances_df.sort_values(by='Importance',
                                                     ascending=False)
+
         importances_df.to_csv('/opt/airflow/data/importances.csv',index=False)
 
         task_logger.info('Most important features: \n ', importances_df[0:20])
@@ -435,7 +445,7 @@ def analysis():
             plt.savefig(f"/opt/airflow/data/plots/{feature_name}_ice_plot.png")
             plt.close()
         
-    missing_data_analysis() >> exploratory_data_analysis() >> prepare_data() >> missing_data_attribution() >> feature_selection() >> model_training()
+    missing_data_analysis() >> exploratory_data_analysis() >> prepare_data() >> missing_data_attribution() >> feature_selection() >> model_training() >> feature_importances()
 
 
 analysis()
