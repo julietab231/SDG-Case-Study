@@ -282,9 +282,6 @@ def analysis():
         # Select only columns without 'na' inside the column name
         df_without_na = df_without_na[[col for col in df_without_na.columns if 'nan' not in col]]
 
-        df_without_na.index = df_without_na['Customer_ID']
-        df_without_na = df_without_na.drop('Customer_ID', axis=1)
-
         df_without_na.to_csv('/opt/airflow/data/dataset_complete.csv', index=True)
 
         task_logger.info('Dataset completed')
@@ -416,8 +413,7 @@ def analysis():
             plt.savefig(f"/opt/airflow/data/plots/{feature_name}_ice_plot.png")
             plt.close()
         
-    # missing_data_analysis() >> exploratory_data_analysis() >> prepare_data() >> missing_data_attribution() >> feature_selection() >> model_training()
-    exploratory_data_analysis() >> prepare_data() >> missing_data_attribution() >> feature_selection() >> model_training()
+    missing_data_analysis() >> exploratory_data_analysis() >> prepare_data() >> missing_data_attribution() >> feature_selection() >> model_training()
 
 
 analysis()
