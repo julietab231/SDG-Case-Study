@@ -81,6 +81,9 @@ def analysis():
 
         # change the data type of the selected columns
         df[num_cols] = df[num_cols].astype(float)
+
+        # Select only columns without 'Unnamed' inside the column name
+        df = df[[col for col in df.columns if 'Unnamed' not in col]]
         
         df.to_csv('/opt/airflow/data/dataset_prepared.csv', index=True)
 
@@ -93,6 +96,9 @@ def analysis():
         df = pd.read_csv(my_data.uri, 
                 delimiter=';',
                 decimal=',')
+        
+        df.index = df['Customer_ID']
+        df = df.drop('Customer_ID', axis=1)
 
         task_logger.info('Dataset read')
 
@@ -164,11 +170,15 @@ def analysis():
 
         task_logger.info('Saved incomplete variables distribution plots')
 
+
     @task(outlets=[my_data_cleaned])
     def exploratory_data_analysis():
         df = pd.read_csv(my_data.uri, 
                 delimiter=';',
                 decimal=',')
+
+        df.index = df['Customer_ID']
+        df = df.drop('Customer_ID', axis=1)
 
         task_logger.info('Dataset read')
         # some corrections
@@ -220,13 +230,19 @@ def analysis():
         task_logger.info('Variables excluded')
 
         df.to_csv('/opt/airflow/data/dataset_cleaned.csv', index=True)
-        task_logger.info('dataset_cleaned saved as csv into airflow/dags')
+        task_logger.info('dataset_cleaned saved as csv into airflow/data')
 
+        task_logger.info('Dataset cleaned')
+        task_logger.info('Shape:\n')
+        task_logger.info(df.shape)
 
     @task(outlets=[my_data_completed])
     def missing_data_attribution():
         df = pd.read_csv(my_data_prepared.uri, 
                 delimiter=',')
+
+        df.index = df['Customer_ID']
+        df = df.drop('Customer_ID', axis=1)
 
         # Calculate number of null per variable
         na_per_variable = df.isnull().sum()
@@ -263,15 +279,26 @@ def analysis():
             not_predicted_rows_pct = round(not_predicted_rows/len(df) * 100,2)
             task_logger.warning(f'There is a  {not_predicted_rows_pct} % of rows without predicted values.  Because the amount of missing information was too much to predict missing values.')
 
-        # Seleccionar solo las columnas que no contienen 'nan' en su nombre
+        # Select only columns without 'na' inside the column name
         df_without_na = df_without_na[[col for col in df_without_na.columns if 'nan' not in col]]
 
+        df_without_na.index = df_without_na['Customer_ID']
+        df_without_na = df_without_na.drop('Customer_ID', axis=1)
+
         df_without_na.to_csv('/opt/airflow/data/dataset_complete.csv', index=True)
+
+        task_logger.info('Dataset completed')
+        task_logger.info('Shape:\n')
+        task_logger.info(df_without_na.shape)
 
     @task(outlets=[my_data_selected])
     def feature_selection():
         df = pd.read_csv(my_data_completed.uri, 
                 delimiter=',')
+
+        df.index = df['Customer_ID']
+        df = df.drop('Customer_ID', axis=1)
+
         X =df.drop('churn', axis=1)
         y = df['churn']
 
@@ -296,13 +323,24 @@ def analysis():
 
         selected_features = mic[mic['mic_scores']>0]
 
-        df = df[selected_features['cols']]
+        selected_features_series = pd.Series(selected_features['cols'])
+        selected_features_series = pd.concat([selected_features_series, pd.Series('churn')])
+
+        df = df[selected_features_series]
         df.to_csv('/opt/airflow/data/dataset_feature_selected.csv', index=True)
+
+        task_logger.info('Dataset with selected features saved')
+        task_logger.info('Shape:\n')
+        task_logger.info(df.shape)
 
     @task
     def model_training():
         df = pd.read_csv(my_data_selected.uri, 
                 delimiter=',')
+        
+        df.index = df['Customer_ID']
+        df = df.drop('Customer_ID', axis=1)
+
         X = df.drop('churn', axis=1)
         y = df['churn']
 

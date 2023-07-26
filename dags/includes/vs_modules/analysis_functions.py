@@ -36,7 +36,7 @@ def eda(df, term):
                 axs[i].set_xlabel('churn')
                 axs[i].set_ylabel(var)
             plt.tight_layout()
-            plt.savefig(f"/opt/airflow/plots/eda_{term}_churn_relation.png")
+            plt.savefig(f'/opt/airflow/data/plots/eda_{term}_churn_relation.png')
 
             print('Saved eda churn relation plot')
         except Exception as e:
@@ -60,7 +60,7 @@ def eda(df, term):
                 ax.set_ylabel('Count')
 
             plt.tight_layout()
-            plt.savefig(f"/opt/airflow/plots/eda_{term}_distribution.png")
+            plt.savefig(f'/opt/airflow/data/plots/eda_{term}_distribution.png')
             print('Saved eda distribution plots')
         except Exception as e:
             print(e)
@@ -73,16 +73,24 @@ def eda(df, term):
         df_rest_cols.index = df_rest_cols['Customer_ID']
         df_rest_cols = df_rest_cols.drop('Customer_ID', axis=1)
 
+        print('Selected rest of columns')
+
         # select only numerical variables:
         num_cols = df_rest_cols.select_dtypes(include='number')
         variables = num_cols.columns
+
+        print('Only numerical columns')
 
         # Crear un gráfico de dispersión para cada variable comparada con churn
         # Calcular el número de subtramas necesarias
         num_plots = len(variables)
 
+        print(f'Number of plots: {num_plots}')
+
         # Crear una matriz de subtramas
         num_rows = (num_plots // 4) + 1
+        
+        print('Created a plt.subplots frame')
         try:
             fig, axs = plt.subplots(num_rows, 4, figsize=(16, num_rows*4))
             for i, var in enumerate(variables):
@@ -91,14 +99,15 @@ def eda(df, term):
                 ax.set_xlabel('churn')
                 ax.set_ylabel(var)
             plt.tight_layout()
-            plt.savefig(f"/opt/airflow/plots/eda_{term}_numeric_churn_relation.png")
+            plt.savefig(f'/opt/airflow/data/plots/eda_{term}_numeric_churn_relation.png')
+            print('Saved eda numeric churn relation plots')
         except Exception as e:
             print(e)
-
-        # Analizar la distribución de las variables 'rev'
-        # Crear un histograma para cada variable
+            
         # Crear una matriz de subtramas
         num_rows = (num_plots // 4) + 1
+        print('Created a plt.subplots frame')
+
         try:
             fig, axs = plt.subplots(num_rows, 4, figsize=(16, num_rows*4))
             for i, var in enumerate(variables):
@@ -107,7 +116,8 @@ def eda(df, term):
                 ax.set_xlabel(var)
                 ax.set_ylabel('Count')
             plt.tight_layout()
-            plt.savefig(f"/opt/airflow/plots/eda_{term}_numeric_distribution.png")
+            plt.savefig(f"/opt/airflow/data/plots/eda_{term}_numeric_distribution.png")
+            print('Saved eda numeric distribution plots')
         except Exception as e:
             print(e)
 
@@ -115,12 +125,17 @@ def eda(df, term):
         cat_cols = df_rest_cols.select_dtypes(include='object')
         variables = cat_cols.columns
 
+        print('Only categorical columns')
+
         # Crear un gráfico de dispersión para cada variable comparada con churn
         # Calcular el número de subtramas necesarias
         num_plots = len(variables)
 
+        print(f'Number of plots: {num_plots}')
+
         # Crear una matriz de subtramas
         num_rows = (num_plots // 4) + 1
+        print('Created a plt.subplots frame')
         try:
             fig, axs = plt.subplots(num_rows, 4, figsize=(16, num_rows*4))
             for i, var in enumerate(variables):
@@ -133,7 +148,8 @@ def eda(df, term):
                 ax.legend(loc='best')
 
             plt.tight_layout()
-            plt.savefig(f"/opt/airflow/plots/eda_{term}_categorical_churn_relation.png")
+            plt.savefig(f"/opt/airflow/data/plots/eda_{term}_categorical_churn_relation.png")
+            print('Saved eda categorical churn relation plots')
         except Exception as e:
             print(e)
 
@@ -141,6 +157,7 @@ def eda(df, term):
         # Crear un histograma para cada variable
         # Crear una matriz de subtramas
         num_rows = (num_plots // 4) + 1
+        print('Created a plt.subplots frame')
         try:
             fig, axs = plt.subplots(num_rows, 4, figsize=(16, num_rows*4))
             for i, var in enumerate(variables):
@@ -150,7 +167,8 @@ def eda(df, term):
                 ax.set_ylabel('Count')
 
             plt.tight_layout()
-            plt.savefig(f"/opt/airflow/plots/eda_{term}_categorical_distribution.png")
+            plt.savefig(f"/opt/airflow/data/plots/eda_{term}_categorical_distribution.png")
+            print('Saved eda categorical distribution plots')
         except Exception as e:
             print(e)
 

@@ -9,3 +9,9 @@ df_dtypes.csv
 importances.csv
 output/dt_model.pkl
 dags/dataset_prepared.csv
+*.pkl
+*.png
+data/dataset_cleaned.csv
+data/dataset_complete.csv
+data/dataset_feature_selected.csv
+data/dataset_prepared.csv
