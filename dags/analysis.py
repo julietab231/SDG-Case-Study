@@ -35,11 +35,11 @@ default_args = {
     'retry': 5,
     'retry_delay': timedelta(minutes=5)}
 
-my_data = Dataset('/opt/airflow/dags/dataset.csv')
-my_data_prepared = Dataset('/opt/airflow/dags/dataset_prepared.csv')
-my_data_cleaned = Dataset('/opt/airflow/dags/dataset_cleaned.csv')
-my_data_completed = Dataset('/opt/airflow/dags/dataset_complete.csv')
-my_data_selected= Dataset('/opt/airflow/dags/dataset_feature_selected.csv')
+my_data = Dataset('/opt/airflow/data/dataset.csv')
+my_data_prepared = Dataset('/opt/airflow/data/dataset_prepared.csv')
+my_data_cleaned = Dataset('/opt/airflow/data/dataset_cleaned.csv')
+my_data_completed = Dataset('/opt/airflow/data/dataset_complete.csv')
+my_data_selected= Dataset('/opt/airflow/data/dataset_feature_selected.csv')
 
 @dag(
     default_args=default_args,
@@ -82,7 +82,7 @@ def analysis():
         # change the data type of the selected columns
         df[num_cols] = df[num_cols].astype(float)
         
-        df.to_csv('/opt/airflow/dags/dataset_prepared.csv', index=True)
+        df.to_csv('/opt/airflow/data/dataset_prepared.csv', index=True)
 
         task_logger.info('Dataset prepared and updated')
         task_logger.info('Shape:\n')
@@ -145,7 +145,7 @@ def analysis():
 
         plt.tight_layout()
         plt.show()
-        plt.savefig(f"SDG-Case-Study//plots//incomplete_variables-churn_relation.png")
+        plt.savefig(f"/opt/airflow/data/plots/incomplete_variables-churn_relation.png")
 
         task_logger.info('Saved incomplete variables churn relation plots')
 
@@ -160,7 +160,7 @@ def analysis():
 
         plt.tight_layout()
         plt.show()
-        plt.savefig(f"SDG-Case-Study//plots//incomplete_variables-distribution.png")
+        plt.savefig(f"/opt/airflow/data/plots/incomplete_variables-distribution.png")
 
         task_logger.info('Saved incomplete variables distribution plots')
 
@@ -168,13 +168,11 @@ def analysis():
     def exploratory_data_analysis():
         df = pd.read_csv(my_data.uri, 
                 delimiter=';',
-                decimal=',',
-                encoding='utf-8')
+                decimal=',')
 
         task_logger.info('Dataset read')
         # some corrections
-        df = df.replace('UNKW', np.nan) 
-        df = df.replace('nan',np.nan) 
+        df = df.replace(['UNKW','nan'], np.nan) 
 
         task_logger.info('nan replaces done')
 
@@ -199,11 +197,12 @@ def analysis():
 
         
         # BLOCKS OF ANALYSIS: revenue, minutes, calls and other variables
-        var_groups = ['rev', # revenue
-                        'mou', # minutes
-                        'qty', # calls
-                        'others'
-                        ]
+        var_groups = [
+            'rev', # revenue
+            'mou', # minutes
+            'qty', # calls
+            'others'
+            ]
         task_logger.info('defined blocks for variables analysis')
         #eda = PythonOperator(python_callable=analysis_functions)
         
@@ -220,7 +219,7 @@ def analysis():
                      axis=1)
         task_logger.info('Variables excluded')
 
-        df.to_csv('/opt/airflow/dags/dataset_cleaned.csv', index=True)
+        df.to_csv('/opt/airflow/data/dataset_cleaned.csv', index=True)
         task_logger.info('dataset_cleaned saved as csv into airflow/dags')
 
 
@@ -267,7 +266,7 @@ def analysis():
         # Seleccionar solo las columnas que no contienen 'nan' en su nombre
         df_without_na = df_without_na[[col for col in df_without_na.columns if 'nan' not in col]]
 
-        df_without_na.to_csv('/opt/airflow/dags/dataset_complete.csv', index=True)
+        df_without_na.to_csv('/opt/airflow/data/dataset_complete.csv', index=True)
 
     @task(outlets=[my_data_selected])
     def feature_selection():
@@ -298,7 +297,7 @@ def analysis():
         selected_features = mic[mic['mic_scores']>0]
 
         df = df[selected_features['cols']]
-        df.to_csv('/opt/airflow/dags/dataset_feature_selected.csv', index=True)
+        df.to_csv('/opt/airflow/data/dataset_feature_selected.csv', index=True)
 
     @task
     def model_training():
@@ -319,7 +318,7 @@ def analysis():
         print('trained model')
 
         # Save the trained model as a pickle file
-        with open('SDG-Case-Study//output//dt_model.pkl', 'wb') as f:
+        with open('/opt/airflow/data/dt_model.pkl', 'wb') as f:
             pickle.dump(model, f)
         print('saved model as pickle in output folder')
 
@@ -346,7 +345,7 @@ def analysis():
 
         # Plot and save the ROC curve
         roc_plot = plot_roc_curve(model, X_test, y_test)
-        plt.savefig('SDG-Case-Study//plots//dag02_roc_curve.png')
+        plt.savefig('/opt/airflow/data/plots/roc_curve.png')
 
         # Get the feature importances from the model
         importances = model.feature_importances_
@@ -359,7 +358,7 @@ def analysis():
 
         importances_df = importances_df.sort_values(by='Importance',
                                                     ascending=False)
-        importances_df.to_csv('SDG-Case-Study//output//dag02_importances.csv',index=False)
+        importances_df.to_csv('/opt/airflow/data/importances.csv',index=False)
 
         print('Most important features: \n ', importances_df[0:20])
 
@@ -376,10 +375,11 @@ def analysis():
         for feature_name in top_features:
             fig, ax = plt.subplots()
             plot_partial_dependence(model, X, [feature_name], ax=ax)
-            plt.savefig(f"SDG-Case-Study//plots//{feature_name}_ice_plot.png")
+            plt.savefig(f"/opt/airflow/data/plots/{feature_name}_ice_plot.png")
             plt.close()
         
     # missing_data_analysis() >> exploratory_data_analysis() >> prepare_data() >> missing_data_attribution() >> feature_selection() >> model_training()
-    exploratory_data_analysis() >> prepare_data() >> missing_data_attribution() >> feature_selection()
+    exploratory_data_analysis() >> prepare_data() >> missing_data_attribution() >> feature_selection() >> model_training()
+
 
 analysis()
