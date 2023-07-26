@@ -16,3 +16,6 @@ data/dataset_complete.csv
 data/dataset_feature_selected.csv
 data/dataset_prepared.csv
 *.pyc
+dags/__pycache__/analysis.cpython-37.pyc
+mlruns/0/meta.yaml
+dags/__pycache__/analysis.cpython-37.pyc

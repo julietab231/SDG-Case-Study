@@ -31,6 +31,10 @@ from includes.vs_modules import analysis_functions, variables
 
 import os
 
+import warnings
+
+warnings.filterwarnings('ignore')
+
 mlflow.autolog()
 
 # get the airflow.task logger
@@ -46,6 +50,7 @@ my_data_prepared = Dataset('/opt/airflow/data/dataset_prepared.csv')
 my_data_cleaned = Dataset('/opt/airflow/data/dataset_cleaned.csv')
 my_data_completed = Dataset('/opt/airflow/data/dataset_complete.csv')
 my_data_selected= Dataset('/opt/airflow/data/dataset_feature_selected.csv')
+my_model = Dataset('/otp/airflow/data/model.pkl')
 
 @dag(
     default_args=default_args,
@@ -336,7 +341,7 @@ def analysis():
         task_logger.info('Shape:\n')
         task_logger.info(df.shape)
 
-    @task
+    @task(outlets=[my_model])
     def model_training():
         df = pd.read_csv(my_data_selected.uri, 
                 delimiter=',')
@@ -360,13 +365,14 @@ def analysis():
             print('trained model')
 
             # Save the trained model as a pickle file
-            with open('/opt/airflow/data/dt_model.pkl', 'wb') as f:
+            with open('/opt/airflow/data/model.pkl', 'wb') as f:
                 pickle.dump(model, f)
             print('saved model as pickle in output folder')
 
 
             # Make predictions on the testing data
             y_pred = model.predict(X_test)
+            signature = infer_signature(X_test, y_pred)
             print('predictions made on testing data')
 
             mlflow.sklearn.log_model(model, 
