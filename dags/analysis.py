@@ -4,6 +4,10 @@ from airflow.decorators import task, dag
 from airflow.operators.python import ExternalPythonOperator
 from airflow.operators.python_operator import PythonOperator
 
+import mlflow
+from mlflow import log_metric
+from mlflow.models import infer_signature
+
 import pendulum
 
 import pickle
@@ -26,6 +30,8 @@ from datetime import timedelta
 from includes.vs_modules import analysis_functions, variables
 
 import os
+
+mlflow.autolog()
 
 # get the airflow.task logger
 task_logger = logging.getLogger("airflow.task")
@@ -341,42 +347,52 @@ def analysis():
         X = df.drop('churn', axis=1)
         y = df['churn']
 
-        # Split the data into training and testing sets
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        with mlflow.start_run() as run:
+            # Split the data into training and testing sets
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-        # Create model
-        model = RandomForestClassifier(random_state=42)
-        print('created a random forest classifier model')
+            # Create model
+            model = RandomForestClassifier(random_state=42)
+            print('created a random forest classifier model')
 
-        # Train the model on the training data
-        model.fit(X_train, y_train)
-        print('trained model')
+            # Train the model on the training data
+            model.fit(X_train, y_train)
+            print('trained model')
 
-        # Save the trained model as a pickle file
-        with open('/opt/airflow/data/dt_model.pkl', 'wb') as f:
-            pickle.dump(model, f)
-        print('saved model as pickle in output folder')
+            # Save the trained model as a pickle file
+            with open('/opt/airflow/data/dt_model.pkl', 'wb') as f:
+                pickle.dump(model, f)
+            print('saved model as pickle in output folder')
 
 
-        # Make predictions on the testing data
-        y_pred = model.predict(X_test)
-        print('predictions made on testing data')
+            # Make predictions on the testing data
+            y_pred = model.predict(X_test)
+            print('predictions made on testing data')
+
+            mlflow.sklearn.log_model(model, 
+                                     "model",
+                                     signature=signature)
+            task_logger.info('Run ID:{}'.format(run.info.run_id))
 
         # Calculate the accuracy of the model
         accuracy = accuracy_score(y_test, y_pred)
-        print('Accuracy:', accuracy)
+        log_metric("accuracy", accuracy)
+        task_logger.info('Accuracy:', accuracy)
 
         # Calculate the precision of the model
         precision = precision_score(y_test, y_pred)
-        print('Precision:', precision)
+        log_metric("precision", precision)
+        task_logger.info('Precision:', precision)
 
         # Calculate the recall of the model
         recall = recall_score(y_test, y_pred)
-        print('recall:', recall)
+        log_metric("recall", recall)
+        task_logger.info('recall:', recall)
 
         # Calculate the f1 of the model
         f1 = f1_score(y_test, y_pred)
-        print('f1:', recall)
+        log_metric("f1", f1)
+        task_logger.info('f1:', recall)
 
         # Plot and save the ROC curve
         roc_plot = plot_roc_curve(model, X_test, y_test)
@@ -395,7 +411,7 @@ def analysis():
                                                     ascending=False)
         importances_df.to_csv('/opt/airflow/data/importances.csv',index=False)
 
-        print('Most important features: \n ', importances_df[0:20])
+        task_logger.info('Most important features: \n ', importances_df[0:20])
 
         #################################################################
         # Understand importances with ICE plots
