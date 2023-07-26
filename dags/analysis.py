@@ -380,25 +380,25 @@ def analysis():
                                      signature=signature)
             task_logger.info('Run ID:{}'.format(run.info.run_id))
 
-        # Calculate the accuracy of the model
-        accuracy = accuracy_score(y_test, y_pred)
-        log_metric("accuracy", accuracy)
-        task_logger.info('Accuracy:', accuracy)
+            # Calculate the accuracy of the model
+            accuracy = accuracy_score(y_test, y_pred)
+            log_metric("accuracy", accuracy)
+            task_logger.info('Accuracy:', accuracy)
 
-        # Calculate the precision of the model
-        precision = precision_score(y_test, y_pred)
-        log_metric("precision", precision)
-        task_logger.info('Precision:', precision)
+            # Calculate the precision of the model
+            precision = precision_score(y_test, y_pred)
+            log_metric("precision", precision)
+            task_logger.info('Precision:', precision)
 
-        # Calculate the recall of the model
-        recall = recall_score(y_test, y_pred)
-        log_metric("recall", recall)
-        task_logger.info('recall:', recall)
+            # Calculate the recall of the model
+            recall = recall_score(y_test, y_pred)
+            log_metric("recall", recall)
+            task_logger.info('recall:', recall)
 
-        # Calculate the f1 of the model
-        f1 = f1_score(y_test, y_pred)
-        log_metric("f1", f1)
-        task_logger.info('f1:', recall)
+            # Calculate the f1 of the model
+            f1 = f1_score(y_test, y_pred)
+            log_metric("f1", f1)
+            task_logger.info('f1:', recall)
 
         # Plot and save the ROC curve
         roc_plot = plot_roc_curve(model, X_test, y_test)
