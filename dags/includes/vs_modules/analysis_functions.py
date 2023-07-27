@@ -7,9 +7,15 @@ def eda(df, term):
     if term=='others':
         variables = list(df.filter(regex='^(?!.*rev|.*qty|.*mou)').columns)
         analysis_num = 2
+        outliers=False
+    elif term in ['rev', 'mou']:
+        variables = list(df.filter(like=term).columns)
+        analysis_num = 1
+        outliers=True
     else:
         variables = list(df.filter(like=term).columns)
         analysis_num = 1
+        outliers=False
 
     if analysis_num == 1:
         print('Initialized EDA for:', term)
@@ -32,7 +38,10 @@ def eda(df, term):
             print('Created plt.subplots frame')
 
             for i, var in enumerate(variables):
-                sns.violinplot(x='churn', y=var, data=df, ax=axs[i])
+                sns.violinplot(x='churn',
+                               y=var,
+                               data=df,
+                               ax=axs[i])
                 axs[i].set_xlabel('churn')
                 axs[i].set_ylabel(var)
             plt.tight_layout()
@@ -65,6 +74,12 @@ def eda(df, term):
         except Exception as e:
             print(e)
 
+        if outliers == True:
+            for col in variables:
+                q1 = df[col].quantile(0.05)
+                q3 = df[col].quantile(0.95)
+                iqr = q3 - q1
+                df = df.loc[(df[col] >= q1 - 1.5*iqr) & (df[col] <= q3 + 1.5*iqr)]
 
     elif analysis_num ==2:
         print('Initialized EDA for :', term)
@@ -96,7 +111,10 @@ def eda(df, term):
                 fig, axs = plt.subplots(num_rows, 4, figsize=(16, num_rows*4))
                 for i, var in enumerate(variables):
                     ax = axs[i//4, i%4]
-                    sns.violinplot(x='churn', y=var, data=df, ax=ax)
+                    sns.violinplot(x='churn',
+                                   y=var,
+                                   data=df,
+                                   ax=ax)
                     ax.set_xlabel('churn')
                     ax.set_ylabel(var)
                 plt.tight_layout()
@@ -117,7 +135,7 @@ def eda(df, term):
                     ax.set_xlabel(var)
                     ax.set_ylabel('Count')
                 plt.tight_layout()
-                plt.savefig(f"/opt/airflow/data/plots/eda_{term}_numeric_distribution.png")
+                plt.savefig(f'/opt/airflow/data/plots/eda_{term}_numeric_distribution.png')
                 print('Saved eda numeric distribution plots')
             except Exception as e:
                 print(e)
@@ -149,7 +167,7 @@ def eda(df, term):
                     ax.legend(loc='best')
 
                 plt.tight_layout()
-                plt.savefig(f"/opt/airflow/data/plots/eda_{term}_categorical_churn_relation.png")
+                plt.savefig(f'/opt/airflow/data/plots/eda_{term}_categorical_churn_relation.png')
                 print('Saved eda categorical churn relation plots')
             except Exception as e:
                 print(e)
@@ -166,9 +184,8 @@ def eda(df, term):
                     df[var].hist(bins=20, ax=ax)
                     ax.set_xlabel(var)
                     ax.set_ylabel('Count')
-
                 plt.tight_layout()
-                plt.savefig(f"/opt/airflow/data/plots/eda_{term}_categorical_distribution.png")
+                plt.savefig(f'/opt/airflow/data/plots/eda_{term}_categorical_distribution.png')
                 print('Saved eda categorical distribution plots')
             except Exception as e:
                 print(e)
