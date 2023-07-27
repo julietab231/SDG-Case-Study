@@ -27,3 +27,4 @@ dags/.py
 dags/includes/vs_modules/__pycache__/analysis_functions.cpython-37.pyc
 dags/includes/vs_modules/__pycache__/analysis_functions.cpython-37.pyc
 *.pyc
+*.pyc

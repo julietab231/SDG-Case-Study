@@ -18,6 +18,14 @@ def eda(df, term):
         outliers=False
 
     if analysis_num == 1:
+        if outliers == True:
+            for col in variables:
+                q1 = df[col].quantile(0.05)
+                q3 = df[col].quantile(0.95)
+                iqr = q3 - q1
+                df = df.loc[(df[col] >= q1 - 1.5*iqr) & (df[col] <= q3 + 1.5*iqr)]
+                print(f'Excluded outliers for {col}')
+
         print('Initialized EDA for:', term)
         # Create a scatter plot for each variable compared to churn
         # Calculate the number of subplots needed
@@ -74,20 +82,11 @@ def eda(df, term):
         except Exception as e:
             print(e)
 
-        if outliers == True:
-            for col in variables:
-                q1 = df[col].quantile(0.05)
-                q3 = df[col].quantile(0.95)
-                iqr = q3 - q1
-                df = df.loc[(df[col] >= q1 - 1.5*iqr) & (df[col] <= q3 + 1.5*iqr)]
 
     elif analysis_num ==2:
         print('Initialized EDA for :', term)
         try:
             df_rest_cols = df.filter(regex='^(?!.*rev|.*qty|.*mou)')
-
-            df_rest_cols.index = df_rest_cols['Customer_ID']
-            df_rest_cols = df_rest_cols.drop('Customer_ID', axis=1)
 
             print('Selected rest of columns')
 
