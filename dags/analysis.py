@@ -51,12 +51,12 @@ my_data_prepared = Dataset('/opt/airflow/data/dataset_prepared.csv')
 my_data_cleaned = Dataset('/opt/airflow/data/dataset_cleaned.csv')
 my_data_completed = Dataset('/opt/airflow/data/dataset_complete.csv')
 my_data_selected= Dataset('/opt/airflow/data/dataset_feature_selected.csv')
-my_model = Dataset('/otp/airflow/data/model.pkl')
-importances = Dataset('/otp/airflow/data/importances.csv')
+my_model = Dataset('/opt/airflow/data/model.pkl')
+importances = Dataset('/opt/airflow/data/importances.csv')
 
 @dag(
     default_args=default_args,
-    schedule=[my_data], # runs only when dataset is updated
+    schedule=[my_data], # runs only when dataset is updated               # None -- mejor
     start_date=pendulum.yesterday(),
     catchup=False
     )   
@@ -411,7 +411,17 @@ def analysis():
 
     @task(outlets=[importances])
     def feature_importances():
-        model = my_model.uri
+        model = pickle.load(open(my_model.uri, 'rb'))
+
+        df = pd.read_csv(my_data_selected.uri, 
+        delimiter=',')
+        
+        df.index = df['Customer_ID']
+        df = df.drop('Customer_ID', axis=1)
+
+        X = df.drop('churn', axis=1)
+        y = df['churn']
+
         # Get the feature importances from the model
         importances = model.feature_importances_
 
