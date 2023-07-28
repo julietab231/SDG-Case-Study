@@ -1,8 +1,6 @@
 from airflow.models import DAG
 from airflow import Dataset
 from airflow.decorators import task, dag
-from airflow.operators.python import ExternalPythonOperator
-from airflow.operators.python_operator import PythonOperator
 
 import mlflow
 from mlflow import log_metric
@@ -107,12 +105,6 @@ def analysis():
 
     @task
     def missing_data_analysis():
-        # clean plots folder
-
-        folder = '/otp/airflow/data/plots'
-
-        shutil.rmtree(folder)
-
         df = pd.read_csv(my_data.uri, 
                 delimiter=';',
                 decimal=',')
@@ -234,7 +226,6 @@ def analysis():
             'others'
             ]
         task_logger.info('defined blocks for variables analysis')
-        #eda = PythonOperator(python_callable=analysis_functions)
         
         for term in var_groups:
             analysis_functions.eda(df, term)
