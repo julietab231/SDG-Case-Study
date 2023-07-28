@@ -4,4 +4,5 @@
 
 docker-compose up -d --no-deps --build airflow-webserver airflow-scheduler
 
--- create volume 
+-- mlflow - activate
+mlflow ui

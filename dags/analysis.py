@@ -2,10 +2,6 @@ from airflow.models import DAG
 from airflow import Dataset
 from airflow.decorators import task, dag
 
-import mlflow
-from mlflow import log_metric
-from mlflow.models import infer_signature
-
 import pendulum
 
 import pickle
@@ -34,8 +30,6 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-mlflow.autolog()
-mlflow.set_experiment("Churn Prediction")
 
 # get the airflow.task logger
 task_logger = logging.getLogger("airflow.task")
@@ -70,6 +64,15 @@ def analysis():
 
         task_logger.info('Dataset csv readed')
         task_logger.info(df.head())
+        
+        # binary columns that should be object type:
+        binary_columns = [
+            'rv',
+            'truck',
+            'forgntvl'
+        ]
+        # change dtype for binary columns to object
+        df[binary_columns] = df[binary_columns].astype('object')
 
         num_cols = df.select_dtypes(include='number').columns
 
@@ -199,6 +202,16 @@ def analysis():
         task_logger.info('nan replaces done')
 
         # check if there are columns with varianze equal to zero
+
+        # binary columns that should be object type:
+        binary_columns = [
+            'rv',
+            'truck',
+            'forgntvl'
+        ]
+        # change dtype for binary columns to object
+        df[binary_columns] = df[binary_columns].astype('object')
+
         num_cols_l = df.select_dtypes(include='number').columns
         cat_cols_l = df.select_dtypes(include='object').columns
 
@@ -281,7 +294,7 @@ def analysis():
             # Predict missing values for the selected column
             df.loc[df_with_na.index,col] = model.predict(df_with_na.drop([col], axis=1))
 
-            print('Valores de ',col, 'estimados')
+            task_logger.info('Valores de ',col, 'estimados')
 
         df_without_na = df.dropna()
 
@@ -351,57 +364,44 @@ def analysis():
 
         X = df.drop('churn', axis=1)
         y = df['churn']
+        
 
-        with mlflow.start_run() as run:
+        # Split the data into training and testing sets
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-            # Split the data into training and testing sets
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        # Create model
+        model = RandomForestClassifier(random_state=42)
+        task_logger.info('created a random forest classifier model')
 
-            # Create model
-            model = RandomForestClassifier(random_state=42)
-            print('created a random forest classifier model')
+        # Train the model on the training data
+        model.fit(X_train, y_train)
+        task_logger.info('trained model')
 
-            # Train the model on the training data
-            model.fit(X_train, y_train)
-            print('trained model')
-
-            # Save the trained model as a pickle file
-            with open('/opt/airflow/data/model.pkl', 'wb') as f:
-                pickle.dump(model, f)
-            print('saved model as pickle in output folder')
+        # Save the trained model as a pickle file
+        with open('/opt/airflow/data/model.pkl', 'wb') as f:
+            pickle.dump(model, f)
+        task_logger.info('saved model as pickle in output folder')
 
 
-            # Make predictions on the testing data
-            y_pred = model.predict(X_test)
-            signature = infer_signature(X_test, y_pred)
-            print('predictions made on testing data')
+        # Make predictions on the testing data
+        y_pred = model.predict(X_test)
+        task_logger.info('predictions made on testing data')
 
-            mlflow.sklearn.log_model(model, 
-                                     "model",
-                                     signature=signature)
-            task_logger.info('Run ID:{}'.format(run.info.run_id))
+        # Calculate the accuracy of the model
+        accuracy = accuracy_score(y_test, y_pred)
+        task_logger.info('Accuracy:', accuracy)
 
-            # Calculate the accuracy of the model
-            accuracy = accuracy_score(y_test, y_pred)
-            log_metric("accuracy", accuracy)
-            task_logger.info('Accuracy:', accuracy)
+        # Calculate the precision of the model
+        precision = precision_score(y_test, y_pred)
+        task_logger.info('Precision:', precision)
 
-            # Calculate the precision of the model
-            precision = precision_score(y_test, y_pred)
-            log_metric("precision", precision)
-            task_logger.info('Precision:', precision)
+        # Calculate the recall of the model
+        recall = recall_score(y_test, y_pred)
+        task_logger.info('recall:', recall)
 
-            # Calculate the recall of the model
-            recall = recall_score(y_test, y_pred)
-            log_metric("recall", recall)
-            task_logger.info('recall:', recall)
-
-            # Calculate the f1 of the model
-            f1 = f1_score(y_test, y_pred)
-            log_metric("f1", f1)
-            task_logger.info('f1:', recall)
-
-            mlflow.end_run()
+        # Calculate the f1 of the model
+        f1 = f1_score(y_test, y_pred)
+        task_logger.info('f1:', recall)
 
         # Plot and save the ROC curve
         roc_plot = plot_roc_curve(model, X_test, y_test)
