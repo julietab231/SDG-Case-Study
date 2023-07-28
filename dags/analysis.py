@@ -30,6 +30,7 @@ from datetime import timedelta
 from includes.vs_modules import analysis_functions, variables
 
 import os
+import shutil
 
 import warnings
 
@@ -106,6 +107,12 @@ def analysis():
 
     @task
     def missing_data_analysis():
+        # clean plots folder
+
+        folder = '/otp/airflow/data/plots'
+
+        shutil.rmtree(folder)
+
         df = pd.read_csv(my_data.uri, 
                 delimiter=';',
                 decimal=',')
