@@ -3,6 +3,3 @@
 # docker build . --tag extending_airflow:latest-pythonN.M
 
 docker-compose up -d --no-deps --build airflow-webserver airflow-scheduler
-
--- mlflow - activate
-mlflow ui
