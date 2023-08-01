@@ -18,6 +18,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.inspection import plot_partial_dependence
 from sklearn.metrics import precision_score, recall_score, f1_score, plot_roc_curve, accuracy_score
+from sklearn.preprocessing import StandardScaler
 
 from datetime import timedelta
 
@@ -30,6 +31,8 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
+# Crear un objeto StandardScaler
+scaler = StandardScaler()
 
 # get the airflow.task logger
 task_logger = logging.getLogger("airflow.task")
@@ -234,24 +237,31 @@ def analysis():
 
         cat_cols = df.select_dtypes(include='object').columns
 
-        # Booleans columns must be categorical
-        df[cat_cols] = df[cat_cols].astype(str)
+        # Create a mapping dict to store mapping
+        mapping_dict = {}
 
-        # Perform one-hot encoding on the selected columns
-        onehot_encoder = OneHotEncoder()
-        onehot_encoded = onehot_encoder.fit_transform(df[cat_cols])
+        df_prepared = df
+        # separate ROWS with categorical columns WITH nan
+        for col in cat_cols:
+            df_with_na =  df_prepared[df_prepared[col].isnull()]
+            df_without_na = df_prepared[df_prepared[col].notna()]
 
-        # Convert the encoded data into a pandas dataframe and concatenate it with the original dataframe
-        onehot_encoded_df = pd.DataFrame(onehot_encoded.toarray(), 
-                                            columns=onehot_encoder.get_feature_names(cat_cols),
-                                            index= df.index)
-        df = df.merge(onehot_encoded_df, right_index=True, left_index=True)
+            # obtain categorical values and convert into numerical
+            codes = pd.Categorical(df_without_na[col]).codes
+            # Save encoding in mapping dict
+            mapping_dict[col] = dict(zip(pd.Categorical(df_prepared[col]).categories, codes))
+    
+            # Replace original values with new encoded values
+            df_without_na[col] = codes
 
-        # Drop the original categorical columns that were encoded
-        df = df.drop(cat_cols, axis=1)
+            df_prepared = df_prepared.drop(col,axis=1)
 
-        # change the data type of the selected columns
-        df[num_cols] = df[num_cols].astype(float)
+            df_coded_values =df_without_na[[col]].append(df_with_na[[col]])
+            df_prepared = df_prepared.merge(df_coded_values[[col]], right_index=True, left_index=True,
+                  how='left')
+            df = df_prepared
+
+        task_logger.info(f'Mapping dict: {mapping_dict}')
 
         # Select only columns without 'Unnamed' inside the column name
         df = df[[col for col in df.columns if 'Unnamed' not in col]]
