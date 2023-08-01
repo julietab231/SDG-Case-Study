@@ -333,11 +333,14 @@ def analysis():
             y_pred = model.predict(X_test)
             # precision and f1-score
             accuracy = accuracy_score(y_test.astype('int'), y_pred)
-            task:logger.info(f'Accuracy for {col}: {accuracy}')
+            task_logger.info(f'Accuracy for {col}: {accuracy}')
 
             task_logger.info(f'Valores de {col} estimados')
+        
+        task_logger.info('Todos los valores faltantes imputados')
 
-        df = df.drop(['numbcars',
+        df = df.drop([
+              'numbcars',
               'HHstatin',
               'lor',
               'income',
