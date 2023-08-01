@@ -54,58 +54,6 @@ importances = Dataset('/opt/airflow/data/importances.csv')
     catchup=False
     )   
 def analysis():
-    @task(outlets=[my_data_prepared])
-    def prepare_data():
-        df = pd.read_csv(my_data_cleaned.uri, 
-                    delimiter=',')
-        
-        df.index = df['Customer_ID']
-        df = df.drop('Customer_ID', axis=1)
-
-        task_logger.info('Dataset csv readed')
-        task_logger.info(df.head())
-        
-        # binary columns that should be object type:
-        binary_columns = [
-            'rv',
-            'truck',
-            'forgntvl'
-        ]
-        # change dtype for binary columns to object
-        df[binary_columns] = df[binary_columns].astype('object')
-
-        num_cols = df.select_dtypes(include='number').columns
-
-        cat_cols = df.select_dtypes(include='object').columns
-
-        # Booleans columns must be categorical
-        df[cat_cols] = df[cat_cols].astype(str)
-
-        # Perform one-hot encoding on the selected columns
-        onehot_encoder = OneHotEncoder()
-        onehot_encoded = onehot_encoder.fit_transform(df[cat_cols])
-
-        # Convert the encoded data into a pandas dataframe and concatenate it with the original dataframe
-        onehot_encoded_df = pd.DataFrame(onehot_encoded.toarray(), 
-                                            columns=onehot_encoder.get_feature_names(cat_cols),
-                                            index= df.index)
-        df = df.merge(onehot_encoded_df, right_index=True, left_index=True)
-
-        # Drop the original categorical columns that were encoded
-        df = df.drop(cat_cols, axis=1)
-
-        # change the data type of the selected columns
-        df[num_cols] = df[num_cols].astype(float)
-
-        # Select only columns without 'Unnamed' inside the column name
-        df = df[[col for col in df.columns if 'Unnamed' not in col]]
-        
-        df.to_csv('/opt/airflow/data/dataset_prepared.csv', index=True)
-
-        task_logger.info('Dataset prepared and updated')
-        task_logger.info('Shape:\n')
-        task_logger.info(df.shape)
-
     @task
     def missing_data_analysis():
         df = pd.read_csv(my_data.uri, 
@@ -244,19 +192,73 @@ def analysis():
             analysis_functions.eda(df, term)
             task_logger.info(f'EDA done for {term}')
 
-        for term in ['rev','mou']:
-            df = analysis_functions.drop_outliers(df, term)
-            task_logger.info(f'Outliers dropped for {term}')
-
         # Exclude variables -- manually checked
         df = df.drop(variables.variables_to_discard,
                      axis=1)
         task_logger.info('Variables excluded')
+        
+        df['mou_per_qty'] = df['adjmou']/ df['adjqty']
+        df['rev_per_qty'] = df['adjrev']/ df['adjqty']
+        df = df[~df.isin([ np.inf, -np.inf]).any(1)]
+
+        task_logger.info('New variables created: mou_per_qty and rev_per_qty')
 
         df.to_csv('/opt/airflow/data/dataset_cleaned.csv', index=True)
         task_logger.info('dataset_cleaned saved as csv into airflow/data')
 
         task_logger.info('Dataset cleaned')
+        task_logger.info('Shape:\n')
+        task_logger.info(df.shape)
+
+    @task(outlets=[my_data_prepared])
+    def prepare_data():
+        df = pd.read_csv(my_data_cleaned.uri, 
+                    delimiter=',')
+        
+        df.index = df['Customer_ID']
+        df = df.drop('Customer_ID', axis=1)
+
+        task_logger.info('Dataset csv readed')
+        task_logger.info(df.head())
+        
+        # binary columns that should be object type:
+        binary_columns = [
+            'rv',
+            'truck',
+            'forgntvl'
+        ]
+        # change dtype for binary columns to object
+        df[binary_columns] = df[binary_columns].astype('object')
+
+        num_cols = df.select_dtypes(include='number').columns
+
+        cat_cols = df.select_dtypes(include='object').columns
+
+        # Booleans columns must be categorical
+        df[cat_cols] = df[cat_cols].astype(str)
+
+        # Perform one-hot encoding on the selected columns
+        onehot_encoder = OneHotEncoder()
+        onehot_encoded = onehot_encoder.fit_transform(df[cat_cols])
+
+        # Convert the encoded data into a pandas dataframe and concatenate it with the original dataframe
+        onehot_encoded_df = pd.DataFrame(onehot_encoded.toarray(), 
+                                            columns=onehot_encoder.get_feature_names(cat_cols),
+                                            index= df.index)
+        df = df.merge(onehot_encoded_df, right_index=True, left_index=True)
+
+        # Drop the original categorical columns that were encoded
+        df = df.drop(cat_cols, axis=1)
+
+        # change the data type of the selected columns
+        df[num_cols] = df[num_cols].astype(float)
+
+        # Select only columns without 'Unnamed' inside the column name
+        df = df[[col for col in df.columns if 'Unnamed' not in col]]
+        
+        df.to_csv('/opt/airflow/data/dataset_prepared.csv', index=True)
+
+        task_logger.info('Dataset prepared and updated')
         task_logger.info('Shape:\n')
         task_logger.info(df.shape)
 
@@ -364,7 +366,6 @@ def analysis():
 
         X = df.drop('churn', axis=1)
         y = df['churn']
-        
 
         # Split the data into training and testing sets
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)

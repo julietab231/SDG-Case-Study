@@ -3,11 +3,12 @@
 def eda(df, term):
     import matplotlib.pyplot as plt
     import seaborn as sns
+    import numpy as np
 
     if term=='others':
         variables = list(df.filter(regex='^(?!.*rev|.*qty|.*mou)').columns)
         analysis_num = 2
-        outliers=False
+        outliers=True
     elif term in ['rev', 'mou']:
         variables = list(df.filter(like=term).columns)
         analysis_num = 1
@@ -15,12 +16,13 @@ def eda(df, term):
     else:
         variables = list(df.filter(like=term).columns)
         analysis_num = 1
-        outliers=False
+        outliers=True
 
     if analysis_num == 1:
         if outliers == True:
             for col in variables:
-                q1 = df[col].quantile(0.05)
+              if np.var(df[col]) >100:
+                q1 = df[col].quantile(0.00)
                 q3 = df[col].quantile(0.95)
                 iqr = q3 - q1
                 df = df.loc[(df[col] >= q1 - 1.5*iqr) & (df[col] <= q3 + 1.5*iqr)]
@@ -190,14 +192,3 @@ def eda(df, term):
                 print(e)
         except Exception as e:
             print(e)
-
-def drop_outliers(df, term):
-    variables = list(df.filter(like=term).columns)
-
-    for col in variables:
-        q1 = df[col].quantile(0.05)
-        q3 = df[col].quantile(0.95)
-        iqr = q3 - q1
-        df = df.loc[(df[col] >= q1 - 1.5*iqr) & (df[col] <= q3 + 1.5*iqr)]
-    
-    return df
