@@ -12,7 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.tree import DecisionTreeRegressor
+from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 from sklearn.feature_selection import VarianceThreshold, mutual_info_classif, SelectKBest
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
@@ -289,24 +289,54 @@ def analysis():
         # Show variables with null
         variables_with_na = pct_na_per_variable[pct_na_per_variable > 0].sort_values(ascending=False)
 
-        # Create a Decision Tree Regressor model 
-        model = DecisionTreeRegressor()
-
         variable_with_na_names = list(variables_with_na.index)
 
         # For each column with missing values:
         for col in variable_with_na_names:
-            # Separate rows with missing values and without for the selected column
-            df_with_na =  df.dropna(subset=df.columns.difference([col])) # with na for the selected column
-            df_without_na = df.dropna() # without na
+            variables_to_dicard = variable_with_na_names
+            variables_to_dicard = [x for x in variables_to_dicard if x != col]
 
-            # Train the model for the selected column
-            model.fit(df_without_na.drop([col], axis=1), df_without_na[col])
+            print(col)
+            # Separar las filas con valores faltantes; y sin valores faltantes para la columna actual
+            df_with_na =  df[df[col].isnull()]
+            df_without_na = df.dropna()
 
-            # Predict missing values for the selected column
+            # drop columns with na
+            df_with_na = df_with_na.drop(variables_to_dicard, axis=1)
+            df_without_na = df_without_na.drop(variables_to_dicard, axis=1)
+
+            # Split the data into training and testing sets
+            X = df_without_na.drop([col], axis=1)
+            y = df_without_na[col]
+
+            X_scaled = scaler.fit_transform(X)
+            X_scaled = pd.DataFrame(X_scaled)
+            X_scaled.index = X.index
+
+            X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+            model = DecisionTreeClassifier()
+
+            # Entrenar el modelo de decision tree para la columna actual
+            model.fit(X_train, y_train.astype('int'))
+
+            # Predecir los valores faltantes para la columna actual
             df.loc[df_with_na.index,col] = model.predict(df_with_na.drop([col], axis=1))
 
+            # Evaluate
+            # Predecir los valores faltantes para la columna actual
+            y_pred = model.predict(X_test)
+            # precision and f1-score
+            accuracy = accuracy_score(y_test.astype('int'), y_pred)
+            print('Accuracy for ', col, ': ', accuracy)
+
             task_logger.info('Valores de ',col, 'estimados')
+
+        df = df.drop(['numbcars',
+              'HHstatin',
+              'lor',
+              'income',
+              'adults'],axis=1) # drop features with missing values with not got enought accuracy
 
         df_without_na = df.dropna()
 
