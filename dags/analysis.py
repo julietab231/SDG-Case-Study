@@ -333,9 +333,9 @@ def analysis():
             y_pred = model.predict(X_test)
             # precision and f1-score
             accuracy = accuracy_score(y_test.astype('int'), y_pred)
-            print('Accuracy for ', col, ': ', accuracy)
+            task:logger.info(f'Accuracy for {col}: {accuracy}')
 
-            task_logger.info('Valores de ',col, 'estimados')
+            task_logger.info(f'Valores de {col} estimados')
 
         df = df.drop(['numbcars',
               'HHstatin',
