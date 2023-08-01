@@ -204,6 +204,11 @@ def analysis():
         df['rev_per_qty'] = df['adjrev']/ df['adjqty']
         df = df[~df.isin([ np.inf, -np.inf]).any(1)]
 
+        df = df.drop(['adjmou',
+                      'adjrev',
+                      'adjqty'], 
+                     axis=1)
+
         task_logger.info('New variables created: mou_per_qty and rev_per_qty')
 
         df.to_csv('/opt/airflow/data/dataset_cleaned.csv', index=True)

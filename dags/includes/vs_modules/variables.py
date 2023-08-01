@@ -43,8 +43,5 @@ variables_to_discard = [
     'opk_dat_Mean',
     'iwylis_vce_Mean',
     'totcalls',
-    'adjrev',
-    'adjmou',
-    'adjqty',
     'mouowylisv_Mean'
     ]
