@@ -285,6 +285,8 @@ def modeling():
         #################################################################
         # Understand importances with ICE plots
         #################################################################
+        n = round(len(X)*0.05)
+        sample = X.sample(n=n, random_state=1)
 
         # get the indices of the top 10 most important features
         top_indices = importances.argsort()[::-1][:10]
@@ -294,7 +296,7 @@ def modeling():
         features = X.columns.tolist()
         for feature_name in top_features:
             fig, ax = plt.subplots()
-            plot_partial_dependence(model, X, [feature_name], ax=ax)
+            plot_partial_dependence(model, sample, [feature_name], ax=ax)
             plt.savefig(f"/opt/airflow/data/plots/{feature_name}_ice_plot.png")
             plt.close()
         
