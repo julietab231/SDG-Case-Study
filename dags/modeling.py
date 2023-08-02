@@ -29,9 +29,7 @@ default_args = {
     'retry': 5,
     'retry_delay': timedelta(minutes=5)}
 
-my_data = Dataset('/opt/airflow/data/dataset.csv')
 my_data_prepared = Dataset('/opt/airflow/data/dataset_prepared.csv')
-my_data_cleaned = Dataset('/opt/airflow/data/dataset_cleaned.csv')
 my_data_completed = Dataset('/opt/airflow/data/dataset_complete.csv')
 my_data_selected= Dataset('/opt/airflow/data/dataset_feature_selected.csv')
 my_model = Dataset('/opt/airflow/data/model.pkl')
@@ -39,235 +37,11 @@ importances = Dataset('/opt/airflow/data/importances.csv')
 
 @dag(
     default_args=default_args,
-    schedule=[my_data], # runs only when dataset is updated               # None -- mejor
+    schedule=[my_data_prepared], # runs only when dataset is updated               
     start_date=pendulum.yesterday(),
     catchup=False
     )   
-def analysis():
-    @task
-    def missing_data_analysis():
-        import matplotlib.pyplot as plt
-        import seaborn as sns
-
-        df = pd.read_csv(my_data.uri, 
-                delimiter=';',
-                decimal=',')
-        
-        df.index = df['Customer_ID']
-        df = df.drop('Customer_ID', axis=1)
-
-        task_logger.info('Dataset read')
-
-        # some corrections
-        df = df.replace('UNKW', np.nan) # hnd_webcap
-        df = df.replace('nan',np.nan) 
-        
-        task_logger.info('nan replaces done')
-        
-        # Calculate number of null per variable
-        na_per_variable = df.isnull().sum()
-
-        task_logger.info('Calculated number of null per variable')
-
-        # Calculate % of null per variable
-        pct_na_per_variable = (na_per_variable / len(df))*100
-
-        task_logger.info('Calculated % of null per variable')
-
-        # Show variables with null
-        variables_with_na = pct_na_per_variable[pct_na_per_variable > 0].sort_values(ascending=False)
-
-        task_logger.info(variables_with_na)
-
-        task_logger.info('Variables with NULLs - Relation with CHURN variable')
-    
-
-        # variables with missing values that we want to compare with 'churn'
-        variables = ['numbcars',
-                        'dwllsize', # categorical
-                        'HHstatin', # categorical
-                        'ownrent', # categorical
-                        'dwlltype', # categorical
-                        'lor',
-                        'income',
-                        'adults',
-                        'infobase', # categorical
-                        'hnd_webcap' # categorical
-                        ]
-
-        # Create a bar plot for each variable with churn
-        fig, axs = plt.subplots(2, 5, figsize=(15, 6))
-
-        for i, var in enumerate(variables):
-            churn_by_var = df[['churn', var]].groupby(var).mean()
-            ax = axs[i//5, i%5]
-            churn_by_var.plot(kind='bar', ax=ax, legend=False)
-            ax.set_xlabel(var)
-            ax.set_ylabel('churn rate')
-
-        plt.tight_layout()
-        plt.show()
-        plt.savefig(f"/opt/airflow/data/plots/incomplete_variables-churn_relation.png")
-
-        task_logger.info('Saved incomplete variables churn relation plots')
-
-        # Crear un gr�fico de barras para cada variable
-        fig, axs = plt.subplots(2, 5, figsize=(15, 6))
-
-        for i, var in enumerate(variables):
-            ax = axs[i//5, i%5]
-            sns.countplot(x=var, data=df, ax=ax)
-            ax.set_xlabel(var)
-            ax.set_ylabel('Count')
-
-        plt.tight_layout()
-        plt.show()
-        plt.savefig(f"/opt/airflow/data/plots/incomplete_variables-distribution.png")
-
-        task_logger.info('Saved incomplete variables distribution plots')
-
-
-    @task(outlets=[my_data_cleaned])
-    def exploratory_data_analysis():
-        from sklearn.feature_selection import VarianceThreshold, mutual_info_classif, SelectKBest
-
-        df = pd.read_csv(my_data.uri, 
-                delimiter=';',
-                decimal=',')
-
-        df.index = df['Customer_ID']
-        df = df.drop('Customer_ID', axis=1)
-
-        task_logger.info('Dataset read')
-        # some corrections
-        df = df.replace(['UNKW','nan'], np.nan) 
-
-        task_logger.info('nan replaces done')
-
-        # check if there are columns with varianze equal to zero
-
-        # binary columns that should be object type:
-        binary_columns = [
-            'rv',
-            'truck',
-            'forgntvl'
-        ]
-        # change dtype for binary columns to object
-        df[binary_columns] = df[binary_columns].astype('object')
-
-        num_cols_l = df.select_dtypes(include='number').columns
-        cat_cols_l = df.select_dtypes(include='object').columns
-
-        num_const = VarianceThreshold(threshold=0)
-        num_const.fit(df[num_cols_l])
-        num_const_cols = list(set(df[num_cols_l].columns) - set(num_cols_l[num_const.get_support()]))
-        cat_const_cols = df[cat_cols_l].nunique()[lambda x: x<2].index.tolist()
-        all_const_cols = num_const_cols + cat_const_cols
-
-        task_logger.info('Check if there are columns with varianze = zero')
-
-        # update columns to discard:
-        if len(all_const_cols)>0:
-            variables.colums_to_drop.append(all_const_cols)
-            task_logger.info(f'Columns to discard from the analysis : {all_const_cols}')
-
-        task_logger.info('Updated list of columns to discard')
-
-        
-        # BLOCKS OF ANALYSIS: revenue, minutes, calls and other variables
-        var_groups = [
-            'rev', # revenue
-            'mou', # minutes
-            'qty', # calls
-            'others'
-            ]
-        task_logger.info('defined blocks for variables analysis')
-        
-        for term in var_groups:
-            analysis_functions.eda(df, term)
-            task_logger.info(f'EDA done for {term}')
-
-        # Exclude variables -- manually checked
-        df = df.drop(variables.variables_to_discard,
-                     axis=1)
-        task_logger.info('Variables excluded')
-        
-        df['mou_per_qty'] = df['adjmou']/ df['adjqty']
-        df['rev_per_qty'] = df['adjrev']/ df['adjqty']
-        df = df[~df.isin([ np.inf, -np.inf]).any(1)]
-
-        df = df.drop(['adjmou',
-                      'adjrev',
-                      'adjqty'], 
-                     axis=1)
-
-        task_logger.info('New variables created: mou_per_qty and rev_per_qty')
-
-        df.to_csv('/opt/airflow/data/dataset_cleaned.csv', index=True)
-        task_logger.info('dataset_cleaned saved as csv into airflow/data')
-
-        task_logger.info('Dataset cleaned')
-        task_logger.info('Shape:\n')
-        task_logger.info(df.shape)
-
-    @task(outlets=[my_data_prepared])
-    def prepare_data():
-        df = pd.read_csv(my_data_cleaned.uri, 
-                    delimiter=',')
-        
-        df.index = df['Customer_ID']
-        df = df.drop('Customer_ID', axis=1)
-
-        task_logger.info('Dataset csv readed')
-        task_logger.info(df.head())
-        
-        # binary columns that should be object type:
-        binary_columns = [
-            'rv',
-            'truck',
-            'forgntvl'
-        ]
-        # change dtype for binary columns to object
-        df[binary_columns] = df[binary_columns].astype('object')
-
-        num_cols = df.select_dtypes(include='number').columns
-
-        cat_cols = df.select_dtypes(include='object').columns
-
-        # Create a mapping dict to store mapping
-        mapping_dict = {}
-
-        df_prepared = df
-        # separate ROWS with categorical columns WITH nan
-        for col in cat_cols:
-            df_with_na =  df_prepared[df_prepared[col].isnull()]
-            df_without_na = df_prepared[df_prepared[col].notna()]
-
-            # obtain categorical values and convert into numerical
-            codes = pd.Categorical(df_without_na[col]).codes
-            # Save encoding in mapping dict
-            mapping_dict[col] = dict(zip(pd.Categorical(df_prepared[col]).categories, codes))
-    
-            # Replace original values with new encoded values
-            df_without_na[col] = codes
-
-            df_prepared = df_prepared.drop(col,axis=1)
-
-            df_coded_values =df_without_na[[col]].append(df_with_na[[col]])
-            df_prepared = df_prepared.merge(df_coded_values[[col]], right_index=True, left_index=True,
-                  how='left')
-            df = df_prepared
-
-        task_logger.info(f'Mapping dict: {mapping_dict}')
-
-        # Select only columns without 'Unnamed' inside the column name
-        df = df[[col for col in df.columns if 'Unnamed' not in col]]
-        
-        df.to_csv('/opt/airflow/data/dataset_prepared.csv', index=True)
-
-        task_logger.info('Dataset prepared and updated')
-        task_logger.info('Shape:\n')
-        task_logger.info(df.shape)
+def modeling():
 
     @task(outlets=[my_data_completed])
     def missing_data_attribution():
@@ -298,10 +72,15 @@ def analysis():
 
         # For each column with missing values:
         for col in variable_with_na_names:
+            if col in ['change_mou','mou_Mean']:
+                task_logger.info(f'Not able to attribute {col}')
+                continue
+
             variables_to_dicard = variable_with_na_names
             variables_to_dicard = [x for x in variables_to_dicard if x != col]
 
-            print(col)
+            task_logger.info(f'{col}')
+
             # Separar las filas con valores faltantes; y sin valores faltantes para la columna actual
             df_with_na =  df[df[col].isnull()]
             df_without_na = df.dropna()
@@ -320,13 +99,18 @@ def analysis():
 
             X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
+            task_logger.info('Data splitted into training and testing sets')
             model = DecisionTreeClassifier()
+            task_logger.info('DecisionTreeClassifier created')
 
             # Entrenar el modelo de decision tree para la columna actual
             model.fit(X_train, y_train.astype('int'))
+            task_logger.info('DecisionTreeClassifier fitted')
+                
 
             # Predecir los valores faltantes para la columna actual
             df.loc[df_with_na.index,col] = model.predict(df_with_na.drop([col], axis=1))
+            task_logger.info('Missing values predicted')
 
             # Evaluate
             # Predecir los valores faltantes para la columna actual
@@ -365,6 +149,7 @@ def analysis():
     @task(outlets=[my_data_selected])
     def feature_selection():
         from sklearn.feature_selection import VarianceThreshold, mutual_info_classif, SelectKBest
+        from sklearn.model_selection import train_test_split
 
         df = pd.read_csv(my_data_completed.uri, 
                 delimiter=',')
@@ -513,7 +298,7 @@ def analysis():
             plt.savefig(f"/opt/airflow/data/plots/{feature_name}_ice_plot.png")
             plt.close()
         
-    missing_data_analysis() >> exploratory_data_analysis() >> prepare_data() 
+    missing_data_attribution() >> feature_selection() >> model_training() >> feature_importances()
 
 
-analysis()
+modeling()
