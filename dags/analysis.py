@@ -4,21 +4,10 @@ from airflow.decorators import task, dag
 
 import pendulum
 
-import pickle
-
 import logging
+
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
-from sklearn.feature_selection import VarianceThreshold, mutual_info_classif, SelectKBest
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.inspection import plot_partial_dependence
-from sklearn.metrics import precision_score, recall_score, f1_score, plot_roc_curve, accuracy_score
-from sklearn.preprocessing import StandardScaler
 
 from datetime import timedelta
 
@@ -31,8 +20,6 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-# Crear un objeto StandardScaler
-scaler = StandardScaler()
 
 # get the airflow.task logger
 task_logger = logging.getLogger("airflow.task")
@@ -59,6 +46,9 @@ importances = Dataset('/opt/airflow/data/importances.csv')
 def analysis():
     @task
     def missing_data_analysis():
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+
         df = pd.read_csv(my_data.uri, 
                 delimiter=';',
                 decimal=',')
@@ -279,6 +269,14 @@ def analysis():
 
     @task(outlets=[my_data_completed])
     def missing_data_attribution():
+        from sklearn.tree import DecisionTreeClassifier
+        from sklearn.model_selection import train_test_split
+        from sklearn.metrics import accuracy_score
+        from sklearn.preprocessing import StandardScaler
+
+        # Crear un objeto StandardScaler
+        scaler = StandardScaler()
+
         df = pd.read_csv(my_data_prepared.uri, 
                 delimiter=',')
 
@@ -364,6 +362,8 @@ def analysis():
 
     @task(outlets=[my_data_selected])
     def feature_selection():
+        from sklearn.feature_selection import VarianceThreshold, mutual_info_classif, SelectKBest
+
         df = pd.read_csv(my_data_completed.uri, 
                 delimiter=',')
 
@@ -406,6 +406,12 @@ def analysis():
 
     @task(outlets=[my_model])
     def model_training():
+        import pickle
+        import matplotlib.pyplot as plt
+        from sklearn.model_selection import train_test_split
+        from sklearn.ensemble import RandomForestClassifier
+        from sklearn.metrics import precision_score, recall_score, f1_score, plot_roc_curve, accuracy_score
+
         df = pd.read_csv(my_data_selected.uri, 
                 delimiter=',')
         
@@ -458,6 +464,10 @@ def analysis():
 
     @task(outlets=[importances])
     def feature_importances():
+        import pickle
+        import matplotlib.pyplot as plt
+        from sklearn.inspection import plot_partial_dependence
+
         model = pickle.load(open(my_model.uri, 'rb'))
 
         df = pd.read_csv(my_data_selected.uri, 
